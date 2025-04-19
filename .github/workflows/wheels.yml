@@ -26,12 +26,13 @@ jobs:
         run: |
           MATRIX=$(
             {
-              cibuildwheel --print-build-identifiers --platform linux \
-              | jq -nRc '{"only": inputs, "os": "macos-latest"}'
+              echo '{"only": "cp39-macosx_arm64", "os": "macos-latest"}'
             } | jq -sc
           )
           echo "include=$MATRIX"
           echo "include=$MATRIX" >> $GITHUB_OUTPUT
+    env:
+      CIBW_ARCHS_MACOS: arm64
 
   build_wheels:
     name: Build for ${{ matrix.only }}
