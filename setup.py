@@ -38,11 +38,11 @@ print("Building lxml version %s." % lxml_version)
 OPTION_RUN_TESTS = setupinfo.has_option('run-tests')
 
 branch_link = """
-After an official release of a new stable series, bug fixes may become
-available at
-https://github.com/lxml/lxml/tree/lxml-%(branch_version)s .
-Note that a local source build requires Cython to be installed
-in an appropriate version for the build.
+After an official release of a new stable series, bug fixes may become available at
+https://github.com/lxml/lxml/tree/lxml-{branch_version} .
+Running ``pip install https://github.com/lxml/lxml/archive/refs/heads/lxml-{branch_version}.tar.gz``
+will install the unreleased branch state as soon as a maintenance branch has been established.
+Note that this requires Cython to be installed at an appropriate version for the build.
 
 """
 
@@ -53,7 +53,7 @@ with open("requirements.txt", "r") as f:
     deps = [line.strip() for line in f if ':' in line]
 
 extra_options = {
-    'python_requires': '>=3.6',  # NOTE: keep in sync with Trove classifier list below.
+    'python_requires': '>=3.8',  # NOTE: keep in sync with Trove classifier list below.
 
     'extras_require': {
         'source': deps,
@@ -200,40 +200,32 @@ setup(
     maintainer_email="lxml@lxml.de",
     license="BSD-3-Clause",
     url="https://lxml.de/",
-    # Commented out because this causes distutils to emit warnings
-    # `Unknown distribution option: 'bugtrack_url'`
-    # which distract folks from real causes of problems when troubleshooting
-    # bugtrack_url="https://bugs.launchpad.net/lxml",
     project_urls={
         "Source": "https://github.com/lxml/lxml",
+        "Bug Tracker": "https://bugs.launchpad.net/lxml",
     },
     description=(
         "Powerful and Pythonic XML processing library"
         " combining libxml2/libxslt with the ElementTree API."
     ),
-    long_description=((("""\
-lxml is a Pythonic, mature binding for the libxml2 and libxslt libraries.  It
-provides safe and convenient access to these libraries using the ElementTree
-API.
+    long_description=(("""\
+lxml is a Pythonic, mature binding for the libxml2 and libxslt libraries.
+It provides safe and convenient access to these libraries using the
+ElementTree API.
 
 It extends the ElementTree API significantly to offer support for XPath,
 RelaxNG, XML Schema, XSLT, C14N and much more.
 
-To contact the project, go to the `project home page
-<https://lxml.de/>`_ or see our bug tracker at
-https://launchpad.net/lxml
+To contact the project, go to the `project home page <https://lxml.de/>`_
+or see our bug tracker at https://launchpad.net/lxml
 
 In case you want to use the current in-development version of lxml,
 you can get it from the github repository at
 https://github.com/lxml/lxml .  Note that this requires Cython to
-build the sources, see the build instructions on the project home
-page.  To the same end, running ``easy_install lxml==dev`` will
-install lxml from
-https://github.com/lxml/lxml/tarball/master#egg=lxml-dev if you have
-an appropriate version of Cython installed.
+build the sources, see the build instructions on the project home page.
 
-""" + branch_link) % {"branch_version": versioninfo.branch_version()}) +
-                      versioninfo.changes()),
+""" + branch_link).format(branch_version=versioninfo.branch_version())
+    + versioninfo.changes()),
     classifiers=[
         versioninfo.dev_status(),
         'Intended Audience :: Developers',

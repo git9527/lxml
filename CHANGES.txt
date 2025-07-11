@@ -2,11 +2,16 @@
 lxml changelog
 ==============
 
-6.0.0 (2025-??-??)
+6.0.0 (2025-06-26)
 ==================
 
 Features added
 --------------
+
+* GH#463: ``lxml.html.diff`` is faster and provides structurally better diffs.
+  Original patch by Steven Fernandez.
+
+* GH#405: The factories ``Element`` and ``ElementTree`` can now be used in type hints.
 
 * GH#448: Parsing from ``memoryview`` and other buffers is supported to allow zero-copy parsing.
 
@@ -16,7 +21,12 @@ Features added
 * GH#458: ``CDATA`` can now be written into the incremental ``xmlfile()`` writer.
   Original patch by Lane Shaw.
 
-* GH#438: Wheels include the ``arm7l`` target.
+* A new parser option ``decompress=False`` was added that controls the automatic
+  input decompression when using libxml2 2.15.0 or later.  Disabling this option
+  by default will effectively prevent decompression bombs when handling untrusted
+  input.  Code that depends on automatic decompression must enable this option.
+  Note that libxml2 2.15.0 was not released yet, so this option currently has no
+  effect but can already be used.
 
 * The set of compile time / runtime supported libxml2 feature names is available as
   ``etree.LIBXML_COMPILED_FEATURES`` and ``etree.LIBXML_FEATURES``.
@@ -27,19 +37,28 @@ Features added
 Bugs fixed
 ----------
 
+* GH#353: Predicates in ``.find*()`` could mishandle tag indices if a default namespace is provided.
+  Original patch by Luise K.
+
+* GH#272: The ``head`` and ``body`` properties of ``lxml.html`` elements failed if no such element
+  was found.  They now return ``None`` instead.
+  Original patch by FVolral.
+
 * Tag names provided by code (API, not data) that are longer than ``INT_MAX``
   could be truncated or mishandled in other ways.
 
 * ``.text_content()`` on ``lxml.html`` elements accidentally returned a "smart string"
   without additional information.  It now returns a plain string.
-  Proposed by Tomi Belan.
+
+* LP#2109931: When building lxml with coverage reporting, it now disables the ``sys.monitoring``
+  support due to the lack of support in https://github.com/nedbat/coveragepy/issues/1790
 
 Other changes
 -------------
 
 * Support for Python < 3.8 was removed.
 
-* Parsing directly from zlib or lzma compressed data is now considered an optional
+* Parsing directly from zlib (or lzma) compressed data is now considered an optional
   feature in lxml.  It may get removed from libxml2 at some point for security reasons
   (compression bombs) and is therefore no longer guaranteed to be available in lxml.
 
@@ -47,16 +66,37 @@ Other changes
   but may get disabled or removed in later (x.y.0) releases.  To test the availability,
   use ``"zlib" in etree.LIBXML_FEATURES``.
 
-* Binary wheels use the library versions libxml2 2.13.7 and libxslt 1.1.43.
-  Note that this disables direct HTTP (and FTP) support for parsing from URLs.
+* The ``Schematron`` class is deprecated and will become non-functional in a future lxml version.
+  The feature will soon be removed from libxml2 and stop being available.
+
+* GH#438: Wheels include the ``arm7l`` target.
+
+* GH#465: Windows wheels include the ``arm64`` target.
+  Patch by Finn Womack.
+
+* Binary wheels use the library versions libxml2 2.14.4 and libxslt 1.1.43.
+  Note that this disables direct HTTP and FTP support for parsing from URLs.
   Use Python URL request tools instead (which usually also support HTTPS).
+  To test the availability, use ``"http" in etree.LIBXML_FEATURES``.
 
 * Windows binary wheels use the library versions libxml2 2.11.9, libxslt 1.1.39 and libiconv 1.17.
+  They are now based on VS-2022.
 
-* Built using Cython 3.1.0a1.
+* Built using Cython 3.1.2.
 
 * The debug methods ``MemDebug.dump()`` and ``MemDebug.show()`` were removed completely.
   libxml2 2.13.0 discarded this feature.
+
+
+5.4.0 (2025-04-22)
+==================
+
+Bugs fixed
+----------
+
+* LP#2107279: Binary wheels use libxml2 2.13.8 and libxslt 1.1.43 to resolve several CVEs.
+  (Binary wheels for Windows continue to use a patched libxml2 2.11.9 and libxslt 1.1.39.)
+  Issue found by Anatoly Katyushin.
 
 
 5.3.2 (2025-04-05)
@@ -174,16 +214,6 @@ Other changes
   "sandybridge" (launched 2011), and glibc 2.28 / gcc 12 (manylinux_2_28) wheels were added.
 
 * Built with Cython 3.0.10.
-
-
-5.1.2 (2024-??-??)
-==================
-
-Bugs fixed
-----------
-
-* LP#2059977: ``Element.iterfind("//absolute_path")`` failed with a ``SyntaxError``
-  where it should have issued a warning.
 
 
 5.1.1 (2024-03-28)

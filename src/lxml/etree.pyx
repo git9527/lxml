@@ -481,6 +481,9 @@ cdef public class _Document [ type LxmlDocumentType, object LxmlDocument ]:
         # the document
         tree.xmlFreeDoc(self._c_doc)
 
+    cdef void initDict(self) noexcept:
+        self._parser.initDocDict(self._c_doc)
+
     @cython.final
     cdef getroot(self):
         # return an element proxy for the document root
@@ -543,6 +546,10 @@ cdef public class _Document [ type LxmlDocumentType, object LxmlDocument ]:
             return None
         else:
             return <bint>(self._c_doc.standalone == 1)
+
+    @cython.final
+    cdef bint ishtml(self):
+        return self._c_doc.type == tree.XML_HTML_DOCUMENT_NODE
 
     @cython.final
     cdef bytes buildNewPrefix(self):
@@ -615,12 +622,14 @@ cdef public class _Document [ type LxmlDocumentType, object LxmlDocument ]:
         c_ns = self._findOrBuildNodeNs(c_node, c_href, NULL, 0)
         tree.xmlSetNs(c_node, c_ns)
 
+
 cdef tuple __initPrefixCache():
     cdef int i
     return tuple([ python.PyBytes_FromFormat("ns%d", i)
-                   for i in range(30) ])
+                   for i in range(26) ])
 
 cdef tuple _PREFIX_CACHE = __initPrefixCache()
+
 
 cdef _Document _documentFactory(xmlDoc* c_doc, _BaseParser parser):
     cdef _Document result
@@ -759,6 +768,10 @@ cdef class DocInfo:
         ``standalone`` flag was set to ``'yes'`` or not.
         """
         return self._doc.isstandalone()
+
+    @property
+    def is_html(self):
+        return self._doc.ishtml()
 
     property URL:
         "The source URL of the document (or None if unknown)."
@@ -1128,7 +1141,7 @@ cdef public class _Element [ type LxmlElementType, object LxmlElement ]:
             _assertValidNode(self)
             ns, name = _getNsTag(value)
             parser = self._doc._parser
-            if parser is not None and parser._for_html:
+            if self._doc.ishtml():
                 _htmlTagValidOrRaise(name)
             else:
                 _tagValidOrRaise(name)
@@ -2656,8 +2669,7 @@ cdef class _Attrib:
         cdef xmlAttr* c_attr = self._element._c_node.properties
         cdef Py_ssize_t c = 0
         while c_attr is not NULL:
-            if c_attr.type == tree.XML_ATTRIBUTE_NODE:
-                c += 1
+            c += (c_attr.type == tree.XML_ATTRIBUTE_NODE)
             c_attr = c_attr.next
         return c
 
@@ -3176,18 +3188,34 @@ cdef xmlNode* _createEntity(xmlDoc* c_doc, const_xmlChar* name) noexcept:
 
 # module-level API for ElementTree
 
-def Element(_tag, attrib=None, nsmap=None, **_extra):
+from abc import ABC
+
+class Element(ABC):
     """Element(_tag, attrib=None, nsmap=None, **_extra)
 
-    Element factory.  This function returns an object implementing the
+    Element factory, as a class.
+
+    An instance of this class is an object implementing the
     Element interface.
+
+    >>> element = Element("test")
+    >>> type(element)
+    <class 'lxml.etree._Element'>
+    >>> isinstance(element, Element)
+    True
+    >>> issubclass(_Element, Element)
+    True
 
     Also look at the `_Element.makeelement()` and
     `_BaseParser.makeelement()` methods, which provide a faster way to
     create an Element within a specific document or parser context.
     """
-    return _makeElement(_tag, NULL, None, None, None, None,
-                        attrib, nsmap, _extra)
+    def __new__(cls, _tag, attrib=None, nsmap=None, **_extra):
+          return _makeElement(_tag, NULL, None, None, None, None,
+                              attrib, nsmap, _extra)
+
+# Register _Element as a virtual subclass of Element
+Element.register(_Element)
 
 
 def Comment(text=None):
@@ -3196,10 +3224,6 @@ def Comment(text=None):
     Comment element factory. This factory function creates a special element that will
     be serialized as an XML comment.
     """
-    cdef _Document doc
-    cdef xmlNode*  c_node
-    cdef xmlDoc*   c_doc
-
     if text is None:
         text = b''
     else:
@@ -3209,6 +3233,8 @@ def Comment(text=None):
 
     c_doc = _newXMLDoc()
     doc = _documentFactory(c_doc, None)
+    doc.initDict()
+
     c_node = _createComment(c_doc, _xcstr(text))
     tree.xmlAddChild(<xmlNode*>c_doc, c_node)
     return _elementFactory(doc, c_node)
@@ -3220,10 +3246,6 @@ def ProcessingInstruction(target, text=None):
     ProcessingInstruction element factory. This factory function creates a
     special element that will be serialized as an XML processing instruction.
     """
-    cdef _Document doc
-    cdef xmlNode*  c_node
-    cdef xmlDoc*   c_doc
-
     target = _utf8(target)
     _tagValidOrRaise(target)
     if target.lower() == b'xml':
@@ -3238,6 +3260,8 @@ def ProcessingInstruction(target, text=None):
 
     c_doc = _newXMLDoc()
     doc = _documentFactory(c_doc, None)
+    doc.initDict()
+
     c_node = _createPI(c_doc, _xcstr(target), _xcstr(text))
     tree.xmlAddChild(<xmlNode*>c_doc, c_node)
     return _elementFactory(doc, c_node)
@@ -3273,9 +3297,6 @@ def Entity(name):
     declared in the document.  A document that uses entity references
     requires a DTD to define the entities.
     """
-    cdef _Document doc
-    cdef xmlNode*  c_node
-    cdef xmlDoc*   c_doc
     name_utf = _utf8(name)
     c_name = _xcstr(name_utf)
     if c_name[0] == c'#':
@@ -3283,8 +3304,11 @@ def Entity(name):
             raise ValueError, f"Invalid character reference: '{name}'"
     elif not _xmlNameIsValid(c_name):
         raise ValueError, f"Invalid entity reference: '{name}'"
+
     c_doc = _newXMLDoc()
     doc = _documentFactory(c_doc, None)
+    doc.initDict()
+
     c_node = _createEntity(c_doc, c_name)
     tree.xmlAddChild(<xmlNode*>c_doc, c_node)
     return _elementFactory(doc, c_node)
@@ -3300,30 +3324,39 @@ def SubElement(_Element _parent not None, _tag,
     return _makeSubElement(_parent, _tag, None, None, attrib, nsmap, _extra)
 
 
-def ElementTree(_Element element=None, *, file=None, _BaseParser parser=None):
-    """ElementTree(element=None, file=None, parser=None)
+from typing import Generic, TypeVar
 
-    ElementTree wrapper class.
-    """
-    cdef xmlNode* c_next
-    cdef xmlNode* c_node
-    cdef xmlNode* c_node_copy
-    cdef xmlDoc*  c_doc
-    cdef _ElementTree etree
-    cdef _Document doc
+T = TypeVar("T")
 
-    if element is not None:
-        doc  = element._doc
-    elif file is not None:
-        try:
-            doc = _parseDocument(file, parser, None)
-        except _TargetParserResult as result_container:
-            return result_container.result
-    else:
-        c_doc = _newXMLDoc()
-        doc = _documentFactory(c_doc, parser)
+class ElementTree(ABC, Generic[T]):
+    def __new__(cls, _Element element=None, *, file=None, _BaseParser parser=None):
+        """ElementTree(element=None, file=None, parser=None)
 
-    return _elementTreeFactory(doc, element)
+        ElementTree wrapper class.
+        """
+        cdef xmlDoc*  c_doc
+        cdef _Document doc
+
+        if element is not None:
+            doc  = element._doc
+        elif file is not None:
+            try:
+                doc = _parseDocument(file, parser, None)
+            except _TargetParserResult as result_container:
+                return result_container.result
+        else:
+            c_doc = _newXMLDoc()
+            doc = _documentFactory(c_doc, parser)
+            doc.initDict()
+
+        return _elementTreeFactory(doc, element)
+
+
+# Register _ElementTree as a virtual subclass of ElementTree
+ElementTree.register(_ElementTree)
+
+# Remove "ABC" and typing helpers from module dict
+del ABC, Generic, TypeVar, T
 
 
 def HTML(text, _BaseParser parser=None, *, base_url=None):

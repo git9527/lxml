@@ -1,10 +1,11 @@
 [build-system]
-requires = ["Cython>=3.1.0a1", "setuptools", "wheel"]
+requires = ["Cython>=3.1.2", "setuptools", "wheel"]
 
 [tool.cibuildwheel]
 build-verbosity = 1
-environment = {STATIC_DEPS="true", LIBXML2_VERSION = "2.13.7", LIBXSLT_VERSION = "1.1.43"}
-enable = "pypy"
+environment = {STATIC_DEPS="true", LIBXML2_VERSION = "2.14.4", LIBXSLT_VERSION = "1.1.43"}
+enable = ["pypy", "cpython-prerelease"]
+       # "pypy"
        # "cpython-prerelease"
        # "cpython-freethreading"
 skip = [
@@ -24,8 +25,12 @@ skip = [
     "cp38-musllinux_armv7l",
     "cp38-manylinux_ppc64le",
     "cp39-manylinux_ppc64le",
+    "cp310-manylinux_ppc64le",
+    "cp311-manylinux_ppc64le",
     "cp38-musllinux_ppc64le",
     "cp39-musllinux_ppc64le",
+    "cp310-musllinux_ppc64le",
+    "cp311-musllinux_ppc64le",
     "cp38-manylinux_s390x",
     "cp39-manylinux_s390x",
     "cp38-musllinux_s390x",
@@ -34,7 +39,8 @@ skip = [
 #test-command = "python {package}/test.py -vv"
 
 [tool.cibuildwheel.linux]
-archs = ["x86_64", "aarch64", "i686", "ppc64le", "s390x", "armv7l"]
+#archs = ["x86_64", "aarch64", "i686", "ppc64le", "s390x", "armv7l"]
+archs = ["x86_64", "aarch64", "i686", "ppc64le", "armv7l"]
 repair-wheel-command = "auditwheel repair --strip -w {dest_dir} {wheel}"
 
 [tool.cibuildwheel.linux.environment]
@@ -44,7 +50,7 @@ NM = "gcc-nm"
 RANLIB = "gcc-ranlib"
 LDFLAGS = "-fPIC -flto"
 STATIC_DEPS = "true"
-LIBXML2_VERSION = "2.13.7"
+LIBXML2_VERSION = "2.14.4"
 LIBXSLT_VERSION = "1.1.43"
 
 [[tool.cibuildwheel.overrides]]
